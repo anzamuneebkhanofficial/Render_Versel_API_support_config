@@ -68,10 +68,19 @@ else if (NODE_ENV == 'production' && RENDER == 'true' && VERSEL == 'false') {
     app.listen(PORT, ...);
 }
 
-// Vercel deployment → does NOT call app.listen()
-// Vercel handles invocation through the exported `app`
+// Vercel deployment → does NOT call app.listen() at all.
+// Vercel imports this file as a module and grabs the exported app directly.
 export default app;
 ```
+
+> **🔑 Key Insight — Why Vercel ignores `app.listen()`:**
+> Vercel runs your code as a **serverless function**, not a long-running process.
+> When a request comes in, Vercel **imports** `server.js` as an ES module and looks
+> for `export default app`. It then calls your Express `app` directly — completely
+> bypassing `app.listen()`. This means your `if/else if` conditions around
+> `app.listen()` are **never executed on Vercel**, regardless of what environment
+> variables you set. The `export default app` line at the bottom is the real
+> entry point for Vercel — not `app.listen()`.
 
 And `vercel.json` tells Vercel to route all traffic through `server.js`:
 
@@ -193,6 +202,19 @@ PORT=           ← Leave empty! Render sets this automatically
 ### 🔺 Deploying on Vercel
 
 Vercel runs your code as **serverless functions**, so `app.listen()` must NOT be called. The `vercel.json` config and `export default app` handle this.
+
+#### 🧠 How Vercel Actually Works (Important)
+
+This is the most commonly misunderstood part of deploying Express on Vercel:
+
+1. Vercel reads `vercel.json` and sees `"use": "@vercel/node"` pointing at `server.js`.
+2. It **imports** your `server.js` file as a serverless function module.
+3. It grabs the **`export default app`** — your Express app object.
+4. For **every incoming HTTP request**, Vercel calls your Express `app` directly — it **never** calls `app.listen()`.
+
+So the `if/else if` block that guards `app.listen()` is **completely ignored on Vercel**. It doesn't matter what you set `NODE_ENV`, `RENDER`, or `VERSEL` to in the Vercel dashboard — none of those conditions affect whether Vercel serves your app. As long as `export default app` is present at the bottom of `server.js`, Vercel will pick it up and serve requests through it.
+
+> 💡 Think of `export default app` as the **on/off switch for Vercel**. The environment variables control `app.listen()`, but Vercel never reaches that code.
 
 **Steps:**
 
